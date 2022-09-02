@@ -99,3 +99,6 @@ const fetchData = () => async () => {
   console.table(column);
   await browser.close();
 };
+
+process.env.NOW_REGION ? (module.exports = app) : app.listen(PORT);
+console.log(`Server running at ${PORT}`);
