@@ -34,8 +34,9 @@ async function handleEvent(event) {
   });
 }
 
-app.listen(PORT);
+process.env.NOW_REGION ? (module.exports = app) : app.listen(PORT);
 console.log(`Server running at ${PORT}`);
+
 const fetchData = () => async () => {
   // 0時にはリセットする
   //　過ぎた時間は削除
@@ -99,6 +100,3 @@ const fetchData = () => async () => {
   console.table(column);
   await browser.close();
 };
-
-process.env.NOW_REGION ? (module.exports = app) : app.listen(PORT);
-console.log(`Server running at ${PORT}`);
