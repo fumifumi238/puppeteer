@@ -1,5 +1,13 @@
 ("use strict");
-const puppeteer = require("puppeteer");
+if (process.env.AWS_LAMBDA_FUNCTION_VERSION) {
+  //Vercel
+  let chrome = require("chrome-aws-lambda");
+  let puppeteer = require("puppeteer-core");
+} else {
+  //Local Test
+  let puppeteer = require("puppeteer");
+}
+
 const express = require("express");
 const line = require("@line/bot-sdk");
 const PORT = process.env.PORT || 3000;
@@ -33,10 +41,10 @@ async function handleEvent(event) {
 
   if (event.message.text === "ストップ" && id !== undefined) {
     clearInterval(id);
-    await client.pushMessage(event.source.userId,{
+    await client.pushMessage(event.source.userId, {
       type: "text",
-      text: "動作を停止しました。"
-    })
+      text: "動作を停止しました。",
+    });
   } else {
     fetchData(
       "https://beauty.hotpepper.jp/CSP/bt/reserve/?storeId=H000255127&couponId=CP00000006479077&add=2&addMenu=0&rootCd=10",
@@ -58,12 +66,12 @@ const fetchData = async (
   previousDays = []
 ) => {
   // カット以外は無効(ネイルなど)
-if(loop === 0){
-  await client.pushMessage(userId, {
-    type: "text",
-    text: "予約状況をチェックします。",
-  });
-}
+  if (loop === 0) {
+    await client.pushMessage(userId, {
+      type: "text",
+      text: "予約状況をチェックします。",
+    });
+  }
   const browser = await puppeteer.launch();
   const page = await browser.newPage();
 
