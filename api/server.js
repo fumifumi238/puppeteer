@@ -1,11 +1,13 @@
 ("use strict");
+let chrome = {};
+let puppeteer;
 if (process.env.AWS_LAMBDA_FUNCTION_VERSION) {
   //Vercel
-  let chrome = require("chrome-aws-lambda");
-  let puppeteer = require("puppeteer-core");
+  chrome = require("chrome-aws-lambda");
+  puppeteer = require("puppeteer-core");
 } else {
   //Local Test
-  let puppeteer = require("puppeteer");
+  puppeteer = require("puppeteer");
 }
 
 const express = require("express");
@@ -19,6 +21,26 @@ if (process.env.NODE_ENV !== "production") {
 const config = {
   channelSecret: process.env.CHANNEL_SECRET,
   channelAccessToken: process.env.CHANNEL_ACCESS_TOKEN,
+};
+
+const getBrowser = async () => {
+  try {
+    const options = process.env.AWS_LAMBDA_FUNCTION_VERSION
+      ? {
+          args: [...chrome.args, "--hide-scrollbars", "--disable-web-security"],
+          defaultViewport: chrome.defaultViewport,
+          executablePath: await chrome.executablePath,
+          headless: true,
+          ignoreHTTPSErrors: true,
+        }
+      : {};
+
+    const browser = await puppeteer.launch(options);
+    return browser;
+  } catch (err) {
+    console.log(err);
+    throw err;
+  }
 };
 
 const app = express();
@@ -41,13 +63,13 @@ async function handleEvent(event) {
 
   if (event.message.text === "ストップ" && id !== undefined) {
     clearInterval(id);
-    await client.pushMessage(event.source.userId, {
+    client.pushMessage(event.source.userId, {
       type: "text",
       text: "動作を停止しました。",
     });
   } else {
-    fetchData(
-      "https://beauty.hotpepper.jp/CSP/bt/reserve/?storeId=H000255127&couponId=CP00000006479077&add=2&addMenu=0&rootCd=10",
+    fetchPerMinute(
+      "https://fumifumi238.github.io/hotpepper_fake_page/",
       event.source.userId
     );
   }
@@ -72,14 +94,23 @@ const fetchData = async (
       text: "予約状況をチェックします。",
     });
   }
-  const browser = await puppeteer.launch();
-  const page = await browser.newPage();
 
   await client.pushMessage(userId, {
     type: "text",
     text: loop,
   });
-  await page.goto(url);
+
+  console.log(url);
+
+  const browser = await getBrowser();
+
+  console.log(browser);
+
+  const page = await browser.newPage();
+
+  await page.setDefaultNavigationTimeout(0);
+
+  await page.goto(url, { waitUntil: "domcontentloaded" });
 
   const fetchText = async (selector) => {
     const path = await page.$$(selector);
@@ -132,8 +163,6 @@ const fetchData = async (
   }
   const column = [];
 
-  const freeSchedules = [];
-
   for (let i = 0; i < times.length; i++) {
     row = new Array(days.length);
     column.push(row);
@@ -164,31 +193,26 @@ const fetchData = async (
       }
       if (previousData[j][i] === "×" && column[j][i] === "◎") {
         message = `${days[i]}の${times[j]}が空きました。`;
-        freeSchedules.push(message);
+
+        await client.pushMessage(userId, {
+          type: "text",
+          text: `${message} \n ${url}`,
+        });
       }
     }
   }
 
-  if (freeSchedules.length > 0) {
-    for (let i = 0; i < freeSchedules.length; i++) {
-      console.log();
-      await client.pushMessage(userId, {
-        type: "text",
-        text: `${freeSchedules[i]} \n ${url}`,
-      });
-    }
-  }
-
   console.table(column);
+
   await browser.close();
 
-  loop += 1;
-  console.log(loop);
-  if (loop >= 180) {
-    return;
-  }
+  await new Promise((resolve) => setTimeout(resolve, 3000));
 
-  id = setTimeout(fetchData, 1000 * 60, url, userId, loop, column, days);
+  await fetchData(url, userId, loop + 1, column, days);
+};
+
+const fetchPerMinute = async (url, userId) => {
+  await fetchData(url, userId, 0);
 };
 
 process.env.NOW_REGION ? (module.exports = app) : app.listen(PORT);
