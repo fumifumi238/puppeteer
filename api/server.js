@@ -95,6 +95,13 @@ const fetchData = async (
     });
   }
 
+  if (loop > 5) {
+    await client.pushMessage(userId, {
+      type: "text",
+      text: "検索を終了します",
+    });
+  }
+
   await client.pushMessage(userId, {
     type: "text",
     text: loop,
@@ -207,6 +214,8 @@ const fetchData = async (
   await browser.close();
 
   await new Promise((resolve) => setTimeout(resolve, 3000));
+
+  console.log(loop);
 
   await fetchData(url, userId, loop + 1, column, days);
 };
